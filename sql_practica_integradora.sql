@@ -88,10 +88,6 @@ SELECT D.nombre AS Departamento,COUNT(P.departamento_codigo) AS Cantidad_Profeso
 JOIN Departamentos AS D ON P.departamento_codigo = D.codigo GROUP BY D.codigo;
 SELECT A.titulo AS Actividad,COUNT(I.estudiante_dni) AS Cantidad_Estudiantes FROM Inscripciones AS I
 JOIN Actividades AS A ON I.actividad_codigo = A.codigo GROUP BY A.codigo HAVING Cantidad_Estudiantes > 2;
-/*SELECT A.tipo AS Tipo,
-CONCAT(A.cupo-A.cupo_disponible,"/",A.cupo) AS Cupo_Actual,
-CONCAT(AVG(A.cupo),"%") AS Cupo_Promedio
-FROM Actividades AS A GROUP BY Tipo;*/
 SELECT tipo AS Tipo_Actividad, CONCAT(FORMAT(AVG(cupo),2),"%") AS Cupo_Promedio FROM Actividades GROUP BY tipo;
 SELECT E.* FROM Estudiantes AS E
 JOIN Inscripciones AS I ON E.dni = I.estudiante_dni
@@ -111,5 +107,59 @@ JOIN Actividades AS A ON A.codigo = I.actividad_codigo
 JOIN Profesores AS P ON A.profesor_dni = P.dni
 JOIN Departamentos AS D ON P.departamento_codigo = D.codigo WHERE D.nombre <> "Arte y Cultura"
 );
-INSERT INTO Inscripciones (estudiante_dni,actividad_codigo,fecha_inscripcion) VALUES (2010,503,'2025-04-01');
+/*INSERT INTO Inscripciones (estudiante_dni,actividad_codigo,fecha_inscripcion) VALUES (2010,503,'2025-04-01');*/
+SELECT P.*, COUNT(A.codigo) AS Cantidad_Actividades FROM Profesores AS P
+JOIN Actividades AS A ON P.dni = A.profesor_dni GROUP BY P.dni HAVING Cantidad_Actividades >  1;
+SELECT A.* FROM Actividades AS A WHERE A.cupo_disponible = A.cupo;
+SELECT E.* FROM Estudiantes AS E
+JOIN Inscripciones AS I ON E.dni = I.estudiante_dni GROUP BY E.dni
+HAVING COUNT(I.actividad_codigo) = (SELECT COUNT(A.codigo) FROM Actividades AS A);
+SELECT P.*,COUNT(A.codigo) AS Cantidad_Actividades,COUNT(E.dni) AS Cantidad_Inscriptos FROM Profesores AS P
+JOIN Actividades AS A ON P.dni = A.profesor_dni
+JOIN Inscripciones AS I ON A.codigo = I.actividad_codigo
+JOIN Estudiantes AS E ON E.dni = I.estudiante_dni GROUP BY P.dni ORDER BY Cantidad_Inscriptos DESC LIMIT 1;
+SELECT D.*,COUNT(I.estudiante_dni) AS Cantidad_Inscriptos FROM Departamentos AS D
+JOIN Profesores AS P ON D.codigo = P.departamento_codigo
+JOIN Actividades AS A ON P.dni = A.profesor_dni
+JOIN Inscripciones AS I ON A.codigo = I.actividad_codigo GROUP BY D.codigo ORDER BY Cantidad_Inscriptos DESC LIMIT 1;
+SELECT A.titulo,CONCAT(A.cupo-A.cupo_disponible," / ",A.cupo) AS Cupo_Actual,CONCAT(FORMAT((((A.cupo-A.cupo_disponible)/cupo)*100),2),"%") AS Cupo_Ocupado FROM Actividades AS A;
+
+#SERIALIZABILIDAD
+/*
+TRANSCACCIONES
+cupo_501 = 30
+T1:
+Leer(cupo_501)
+cupo_501 := cupo_501 - 1
+Escribir(cupo_501)
+T2:
+Leer(cupo_501)
+cupo_501 := cupo_501 - 1
+Escribir(cupo_501)
+
+Ejecución serial de las transacciones: T1 -> T2 = T2 -> T1
+T1
+cupo_501 = 30
+cupo_501 = 30 - 1
+cupo_501 = 29
+T2
+cupo_501 = 29
+cupo_501 = 29 - 1
+cupo_501 = 28
+--> Resulta cupo_501 = 28
+
+Planificación concurrente
+T1
+cupo_501 = 30
+T2
+cupo_501 = 30
+T1
+cupo_501 = 30 - 1
+cupo_501 = 29
+cupo_501 = 30 - 1
+cupo_501 = 29
+--> Resulta cupo_501 = 29
+
+La planificación no es serializable, porque no coincide con la ejecución en serie de T1 y T2 (29 != 28).
+*/
 
